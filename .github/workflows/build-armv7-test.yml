@@ -24,7 +24,10 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends cmake ninja-build libboost-dev python3 gh
       - name: Fetch pinned translator
-        run: sh tools/fetch_dynarmic.sh
+        run: |
+          sh tools/fetch_dynarmic.sh
+          mkdir -p _deps/boost-headers
+          cp -a /usr/include/boost _deps/boost-headers/
       - name: Build Switch NRO
         env:
           DEVKITPRO: /opt/devkitpro
@@ -32,6 +35,7 @@ jobs:
           cmake -S . -B build-switch -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/switch.cmake" \
             -DDYNARMIC_SOURCE="$PWD/_deps/dynarmic" \
+            -DBoost_INCLUDE_DIR="$PWD/_deps/boost-headers" \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build build-switch --parallel 3
       - name: Package and verify
