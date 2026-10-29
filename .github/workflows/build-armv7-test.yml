@@ -1,0 +1,56 @@
+name: Build ARMv7 execution test
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'cmake/**'
+      - 'patches/**'
+      - 'tools/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build-armv7-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build utilities
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends cmake ninja-build libboost-dev python3 gh
+      - name: Fetch pinned translator
+        run: sh tools/fetch_dynarmic.sh
+      - name: Build Switch NRO
+        env:
+          DEVKITPRO: /opt/devkitpro
+        run: |
+          cmake -S . -B build-switch -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/switch.cmake" \
+            -DDYNARMIC_SOURCE="$PWD/_deps/dynarmic" \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build build-switch --parallel 3
+      - name: Package and verify
+        run: python3 tools/package_test.py build-switch/swag2-armv7-test.nro dist/swag2-armv7-test-0.0.1.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swag2-armv7-test-0.0.1
+          path: dist/swag2-armv7-test-0.0.1.zip
+      - name: Publish test download
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          if gh release view v0.0.1-armv7-test >/dev/null 2>&1; then
+            echo "Release already exists; this build remains available as a workflow artifact."
+          else
+            gh release create v0.0.1-armv7-test dist/swag2-armv7-test-0.0.1.zip \
+              --target "$BUILD_COMMIT" --prerelease \
+              --title "0.0.1 ARMv7 execution test (not playable)" \
+              --notes "ARM/Thumb execution-core test and a checked pure export from the user's local game library. Unity/gameplay are NOT implemented. Switch device execution remains unverified. See docs/test-0.0.1.md. No game libraries or assets included."
+          fi

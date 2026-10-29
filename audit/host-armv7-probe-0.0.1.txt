@@ -1,0 +1,9 @@
+SWAG2_TEST version=0.0.1 scope=ARM_THUMB_AND_PURE_GAME_EXPORT unity=NOT_STARTED
+ARM_ARITHMETIC result=PASS r0=12 expected=12 returned=1 fault=0 reason=
+THUMB_ARITHMETIC_AND_INTERWORK result=PASS r0=12 expected=12 returned=1 fault=0 reason=
+UNKNOWN_SVC_REJECTED result=PASS r0=0 expected=0 returned=0 fault=1 reason=android_syscall_or_unknown_svc_not_implemented
+INFINITE_LOOP_BUDGET_STOP result=PASS r0=0 expected=0 returned=0 fault=1 reason=instruction_budget_exhausted
+GAME_ELF32_MAPPED bytes=36259024 export=il2cpp_is_debugger_attached entry=01b7e52c pure_body=01bc7a30 constructors=NOT_RUN relocations=NOT_APPLIED
+ACTUAL_GAME_ARMV7_EXPORT result=PASS r0=0 expected=0 returned=1 fault=0 reason=
+NEXT_BLOCKER full_ELF32_relocation_Android_ABI_threads_TLS_JNI_EGL_GLES_and_GC_not_implemented
+PROBE_RESULT=PASS UNITY_STARTED=NO GAMEPLAY=NOT_IMPLEMENTED

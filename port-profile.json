@@ -9,10 +9,12 @@
   "elf_machine": 40,
   "required_execution_backend": "ARMv7_ARM_Thumb_with_Android_ABI_bridges",
   "execution_backend_implemented": false,
-  "switch_runtime_status": "blocked_before_ELF_load",
+  "switch_runtime_status": "NRO cross-build and structural validation PASS; device execution NOT_RUN",
   "planned_userdata_directory": "sdmc:/switch/swag2-userdata",
   "userdata_directory_implemented": false,
   "original_gc_offsets_reusable": false,
   "controls_reuse_status": "matching_field_names_only_types_and_behavior_unverified",
-  "playable": false
+  "playable": false,
+  "execution_backend_stage": "Dynarmic ARM/Thumb fixtures and restricted pure game export; not an Android runtime",
+  "game_startup_implemented": false
 }

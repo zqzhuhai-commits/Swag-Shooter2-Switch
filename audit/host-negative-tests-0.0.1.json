@@ -1,0 +1,6 @@
+{
+  "real_game_pure_export": true,
+  "malformed_ELF_rejected": true,
+  "missing_library_rejected": true,
+  "changed_export_body_rejected": true
+}

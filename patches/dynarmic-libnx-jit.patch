@@ -1,0 +1,147 @@
+diff --git a/externals/oaknut/include/oaknut/code_block.hpp b/externals/oaknut/include/oaknut/code_block.hpp
+index bfa87d9..af3cc74 100644
+--- a/externals/oaknut/include/oaknut/code_block.hpp
++++ b/externals/oaknut/include/oaknut/code_block.hpp
+@@ -7,8 +7,19 @@
+ #include <cstddef>
+ #include <cstdint>
+ #include <new>
++#include <exception>
+ 
+-#if defined(_WIN32)
++#if defined(__SWITCH__)
++#    ifdef __cplusplus
++extern "C" {
++#    endif
++#    include <switch/kernel/jit.h>
++#    include <switch/result.h>
++#    ifdef __cplusplus
++}
++#    endif
++#    undef BIT
++#elif defined(_WIN32)
+ #    define NOMINMAX
+ #    include <windows.h>
+ #elif defined(__APPLE__)
+@@ -28,7 +39,11 @@ public:
+     explicit CodeBlock(std::size_t size)
+         : m_size(size)
+     {
+-#if defined(_WIN32)
++#if defined(__SWITCH__)
++        if (R_FAILED(jitCreate(&m_jit, (size + 4095) & ~std::size_t(4095))))
++            throw std::bad_alloc{};
++        m_memory = static_cast<std::uint32_t*>(jitGetRxAddr(&m_jit));
++#elif defined(_WIN32)
+         m_memory = (std::uint32_t*)VirtualAlloc(nullptr, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+ #elif defined(__APPLE__)
+ #    if TARGET_OS_IPHONE
+@@ -53,7 +68,9 @@ public:
+         if (m_memory == nullptr)
+             return;
+ 
+-#if defined(_WIN32)
++#if defined(__SWITCH__)
++        jitClose(&m_jit);
++#elif defined(_WIN32)
+         VirtualFree((void*)m_memory, 0, MEM_RELEASE);
+ #else
+         munmap(m_memory, m_size);
+@@ -70,9 +87,20 @@ public:
+         return m_memory;
+     }
+ 
++    std::uint32_t* rwptr() const
++    {
++#if defined(__SWITCH__)
++        return static_cast<std::uint32_t*>(jitGetRwAddr(const_cast<Jit*>(&m_jit)));
++#else
++        return m_memory;
++#endif
++    }
++
+     void protect()
+     {
+-#if defined(__APPLE__) && !TARGET_OS_IPHONE
++#if defined(__SWITCH__)
++        if (R_FAILED(jitTransitionToExecutable(&m_jit))) std::terminate();
++#elif defined(__APPLE__) && !TARGET_OS_IPHONE
+         pthread_jit_write_protect_np(1);
+ #elif defined(__APPLE__) || defined(__NetBSD__) || defined(__OpenBSD__)
+         mprotect(m_memory, m_size, PROT_READ | PROT_EXEC);
+@@ -81,7 +109,9 @@ public:
+ 
+     void unprotect()
+     {
+-#if defined(__APPLE__) && !TARGET_OS_IPHONE
++#if defined(__SWITCH__)
++        if (R_FAILED(jitTransitionToWritable(&m_jit))) std::terminate();
++#elif defined(__APPLE__) && !TARGET_OS_IPHONE
+         pthread_jit_write_protect_np(0);
+ #elif defined(__APPLE__) || defined(__NetBSD__) || defined(__OpenBSD__)
+         mprotect(m_memory, m_size, PROT_READ | PROT_WRITE);
+@@ -90,7 +120,9 @@ public:
+ 
+     void invalidate(std::uint32_t* mem, std::size_t size)
+     {
+-#if defined(__APPLE__)
++#if defined(__SWITCH__)
++        (void)mem; (void)size; // jitTransitionToExecutable flushes the writable alias.
++#elif defined(__APPLE__)
+         sys_icache_invalidate(mem, size);
+ #elif defined(_WIN32)
+         FlushInstructionCache(GetCurrentProcess(), mem, size);
+@@ -137,6 +169,9 @@ public:
+ 
+ protected:
+     std::uint32_t* m_memory;
++#if defined(__SWITCH__)
++    Jit m_jit{};
++#endif
+     std::size_t m_size = 0;
+ };
+ 
+diff --git a/src/dynarmic/backend/arm64/address_space.cpp b/src/dynarmic/backend/arm64/address_space.cpp
+index 2c7ae77..2e37c89 100644
+--- a/src/dynarmic/backend/arm64/address_space.cpp
++++ b/src/dynarmic/backend/arm64/address_space.cpp
+@@ -23,7 +23,7 @@ namespace Dynarmic::Backend::Arm64 {
+ AddressSpace::AddressSpace(size_t code_cache_size)
+         : code_cache_size(code_cache_size)
+         , mem(code_cache_size)
+-        , code(mem.ptr(), mem.ptr())
++        , code(mem.rwptr(), mem.ptr())
+         , fastmem_manager(exception_handler) {
+     ASSERT_MSG(code_cache_size <= 128 * 1024 * 1024, "code_cache_size > 128 MiB not currently supported");
+ 
+@@ -136,7 +136,7 @@ void AddressSpace::Link(EmittedBlockInfo& block_info) {
+     using namespace oaknut::util;
+ 
+     for (auto [ptr_offset, target] : block_info.relocations) {
+-        CodeGenerator c{mem.ptr(), mem.ptr()};
++        CodeGenerator c{mem.rwptr(), mem.ptr()};
+         c.set_xptr(reinterpret_cast<u32*>(block_info.entry_point + ptr_offset));
+ 
+         switch (target) {
+@@ -276,7 +276,7 @@ void AddressSpace::LinkBlockLinks(const CodePtr entry_point, const CodePtr targe
+     using namespace oaknut::util;
+ 
+     for (auto [ptr_offset, type] : block_relocations_list) {
+-        CodeGenerator c{mem.ptr(), mem.ptr()};
++        CodeGenerator c{mem.rwptr(), mem.ptr()};
+         c.set_xptr(reinterpret_cast<u32*>(entry_point + ptr_offset));
+ 
+         switch (type) {
+diff --git a/src/dynarmic/common/spin_lock_arm64.cpp b/src/dynarmic/common/spin_lock_arm64.cpp
+index ccf807e..00f2f26 100644
+--- a/src/dynarmic/common/spin_lock_arm64.cpp
++++ b/src/dynarmic/common/spin_lock_arm64.cpp
+@@ -54,7 +54,7 @@ SpinLockImpl impl;
+ 
+ SpinLockImpl::SpinLockImpl()
+         : mem{4096}
+-        , code{mem.ptr(), mem.ptr()} {}
++        , code{mem.rwptr(), mem.ptr()} {}
+ 
+ void SpinLockImpl::Initialize() {
+     mem.unprotect();

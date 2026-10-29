@@ -1,0 +1,10 @@
+/build*/
+/_deps/
+/switch/
+*.so
+*.apk
+*.xapk
+*.nro
+*.nsp
+*.log
+__pycache__/

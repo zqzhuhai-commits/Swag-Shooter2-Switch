@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "artifact": "swag2-armv7-test.nro",
+  "bytes": 3072056,
+  "sha256": "140fdaaf642eccd89e3d70be45abd86800172a8fd7e18b23a7222c3457a5f31b",
+  "nro_image_bytes": 3055616,
+  "segments": [
+    {
+      "name": "text",
+      "offset": 0,
+      "size": 2555904
+    },
+    {
+      "name": "rodata",
+      "offset": 2555904,
+      "size": 450560
+    },
+    {
+      "name": "data",
+      "offset": 3006464,
+      "size": 49152
+    }
+  ],
+  "asset_header": true,
+  "elf_architecture": "AArch64",
+  "unresolved_dynamic_symbols": [],
+  "host_guest_execution": "five tests passed",
+  "switch_device_execution": "NOT_RUN",
+  "unity_started": false,
+  "playable": false,
+  "toolchain": "devkitA64 GCC 16.1.0; libnx 4.12.0; switch-tools 1.13.1"
+}
